@@ -1,0 +1,12 @@
+.env
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+.vercel
+.env*
+
+# source resume (contains personal contact details)
+resume.md

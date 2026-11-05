@@ -1,0 +1,5 @@
+.env
+.env*
+resume.md
+node_modules
+.next
