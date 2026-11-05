@@ -9,17 +9,40 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MAX_MESSAGES = 20;
 const MAX_CHARS = 2000;
 
-// Simple in-memory rate limit: N requests per window per IP (resets on server restart).
+// Best-effort in-memory rate limit: N requests per window per IP. State is per server instance
+// (soft on serverless); the OpenRouter credit cap is the hard backstop.
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS = 30;
+const SWEEP_THRESHOLD = 1000;
 const hits = new Map<string, number[]>();
+
+function sweep(now: number) {
+  for (const [ip, times] of hits) {
+    if (now - times[times.length - 1] >= WINDOW_MS) hits.delete(ip);
+  }
+}
 
 function rateLimited(ip: string) {
   const now = Date.now();
+  if (hits.size > SWEEP_THRESHOLD) sweep(now);
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
   recent.push(now);
   hits.set(ip, recent);
   return recent.length > MAX_REQUESTS;
+}
+
+/**
+ * Only accept same-origin JSON. Requiring application/json forces a CORS preflight (which fails,
+ * since we send no CORS headers), so other sites can't make visitors' browsers spend our credits
+ * with "simple" text/plain POSTs. Sec-Fetch-Site is an extra check in modern browsers;
+ * non-browser clients don't send it.
+ */
+function rejectCrossSite(req: Request): Response | null {
+  const type = req.headers.get("content-type") ?? "";
+  if (!type.toLowerCase().startsWith("application/json")) return json(415, "Unsupported content type.");
+  const site = req.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin" && site !== "none") return json(403, "Forbidden.");
+  return null;
 }
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -46,6 +69,9 @@ const json = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
 
 export async function POST(req: Request) {
+  const rejected = rejectCrossSite(req);
+  if (rejected) return rejected;
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return json(500, "The digital twin is not configured.");
 

@@ -24,6 +24,38 @@ export const contact = {
   location: "Port Moody, BC",
 };
 
+// Hero: the "profile.yaml" terminal card and the company trail under the fold.
+export type TerminalRow = { key: string; value: string | string[]; tone?: "fg" | "acid" };
+
+export const terminal: TerminalRow[] = [
+  { key: "role", value: `"${profile.title}"`, tone: "fg" },
+  { key: "focus", value: ["devex", "delivery", "ai-native-sdlc"] },
+  { key: "scale", value: "5 teams · 30+ engineers", tone: "fg" },
+  { key: "stack", value: "aws · k8s · terraform · langgraph" },
+  { key: "rating", value: "top performer", tone: "acid" },
+];
+
+export const heroTrail = ["Nokia", "HERE", "Salesforce / Tableau"];
+
+// Scrolling band under the stats.
+export const marquee = [
+  "Salesforce",
+  "Tableau",
+  "HERE Technologies",
+  "Nokia",
+  "Intrinsyc",
+  "AWS",
+  "Kubernetes",
+  "Terraform",
+  "LangGraph",
+  "MCP",
+  "CI/CD",
+  "DORA",
+];
+
+export const journeyIntro =
+  "From embedded networking stacks and the Nokia App Store to monetization platforms at HERE and the AI-native delivery engine behind Tableau. Architect, product manager, and people leader.";
+
 export const stats = [
   { value: 29, suffix: "+", label: "Years building software", sub: "Since 1997" },
   { value: 30, suffix: "+", label: "Engineers & managers led", sub: "Across 5 teams" },
@@ -184,10 +216,12 @@ export const career: Role[] = [
   },
 ];
 
-export const earlierRoles = [
-  { title: "Lead Software Engineer / Part Owner", company: "CT Technologies", years: "1999 – 2004" },
-  { title: "R&D Manager", company: "Pinpoint Technologies", years: "1997 – 2000" },
-  { title: "Senior Software Engineer", company: "Glenayre Technologies", years: "1997 – 1998" },
+export type EarlierRole = { title: string; company: string; start: number; end: number };
+
+export const earlierRoles: EarlierRole[] = [
+  { title: "Lead Software Engineer / Part Owner", company: "CT Technologies", start: 1999, end: 2004 },
+  { title: "R&D Manager", company: "Pinpoint Technologies", start: 1997, end: 2000 },
+  { title: "Senior Software Engineer", company: "Glenayre Technologies", start: 1997, end: 1998 },
 ];
 
 export const education = {

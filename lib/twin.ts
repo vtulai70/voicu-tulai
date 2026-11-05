@@ -70,7 +70,7 @@ ${tools.map((t) => t.name).join(", ")}
 ${roles}
 
 ### Earlier roles
-${earlierRoles.map((e) => `- ${e.title}, ${e.company} (${e.years})`).join("\n")}
+${earlierRoles.map((e) => `- ${e.title}, ${e.company} (${e.start} to ${e.end})`).join("\n")}
 
 ## Education
 ${education.degree}, ${education.school} (${education.year})

@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { profile } from "@/lib/data";
+import { lockScroll } from "@/lib/scroll-lock";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -70,21 +71,56 @@ export function TwinChat() {
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  const openChat = useCallback(() => {
+    // Remember what opened the chat so focus can go back there on close.
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setOpen(true);
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setOpen(false);
+    const back = openerRef.current?.isConnected ? openerRef.current : launcherRef.current;
+    // Wait a frame so the launcher is no longer inert/hidden before focusing it.
+    requestAnimationFrame(() => back?.focus());
+  }, []);
 
   useEffect(() => {
-    const onOpen = () => setOpen(true);
-    window.addEventListener(OPEN_TWIN_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_TWIN_EVENT, onOpen);
-  }, []);
+    window.addEventListener(OPEN_TWIN_EVENT, openChat);
+    return () => window.removeEventListener(OPEN_TWIN_EVENT, openChat);
+  }, [openChat]);
 
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 250);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeChat();
     window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       window.removeEventListener("keydown", onKey);
+    };
+  }, [open, closeChat]);
+
+  // Below the sm breakpoint the chat is full-screen: lock the page behind it while open,
+  // and re-evaluate if the viewport crosses the breakpoint.
+  useEffect(() => {
+    if (!open) return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    let release: (() => void) | null = null;
+    const sync = () => {
+      if (mq.matches && !release) release = lockScroll();
+      else if (!mq.matches && release) {
+        release();
+        release = null;
+      }
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      release?.();
     };
   }, [open]);
 
@@ -152,7 +188,9 @@ export function TwinChat() {
     <>
       {/* launcher */}
       <button
-        onClick={() => setOpen(true)}
+        ref={launcherRef}
+        onClick={openChat}
+        inert={open}
         aria-label="Chat with my digital twin"
         className={`group fixed bottom-5 right-5 z-[55] flex items-center gap-3 border border-acid/40 bg-ink/85 py-2 pl-2 pr-2 shadow-[0_10px_40px_-10px_rgba(212,255,58,0.35)] backdrop-blur-xl transition-all duration-500 hover:border-acid sm:pr-5 ${
           open ? "pointer-events-none translate-y-4 opacity-0" : "opacity-100"
@@ -170,7 +208,7 @@ export function TwinChat() {
         role="dialog"
         aria-modal="false"
         aria-label="Digital twin chat"
-        aria-hidden={!open}
+        inert={!open}
         className={`fixed inset-0 z-[56] flex flex-col border-line bg-ink-2/95 backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[min(680px,calc(100dvh-2.5rem))] sm:w-[420px] sm:border sm:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ${
           open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
         }`}
@@ -192,7 +230,7 @@ export function TwinChat() {
               <path d="M3 8a5 5 0 1 0 1.5-3.5M3 3v2.5h2.5" />
             </IconButton>
           )}
-          <IconButton label="Close chat" onClick={() => setOpen(false)}>
+          <IconButton label="Close chat" onClick={closeChat}>
             <path d="M4 4l8 8M12 4l-8 8" />
           </IconButton>
         </div>

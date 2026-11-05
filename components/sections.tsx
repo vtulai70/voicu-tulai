@@ -6,14 +6,19 @@ import {
   currentFocus,
   earlierRoles,
   education,
+  heroTrail,
   hobbies,
+  journeyIntro,
+  marquee,
   pillars,
   portfolio,
   profile,
   stats,
+  terminal,
   tools,
   volunteering,
 } from "@/lib/data";
+import { careerLanes, careerRange, careerTicks } from "@/lib/timeline";
 import { CountUp, HeroGlow, LocalTime, Reveal, SpotlightCard } from "./interactive";
 import { OpenTwinButton } from "./twin-chat";
 
@@ -114,21 +119,15 @@ export function Hero() {
 
       <div className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-5 pb-8 font-mono text-[10px] uppercase tracking-[0.25em] text-faint md:px-8">
         <span>Scroll</span>
-        <span className="hidden sm:block">Nokia → HERE → Salesforce / Tableau</span>
-        <span>2026</span>
+        <span className="hidden sm:block">{heroTrail.join(" → ")}</span>
+        <span>{careerRange(careerLanes()).end}</span>
       </div>
     </section>
   );
 }
 
 function Terminal() {
-  const rows: [string, React.ReactNode][] = [
-    ["role", <span key="r" className="text-fg">&quot;{profile.title}&quot;</span>],
-    ["focus", <span key="f">[<span className="text-signal">devex</span>, <span className="text-signal">delivery</span>, <span className="text-signal">ai-native-sdlc</span>]</span>],
-    ["scale", <span key="s" className="text-fg">5 teams · 30+ engineers</span>],
-    ["stack", <span key="k">aws · k8s · terraform · langgraph</span>],
-    ["rating", <span key="t" className="text-acid">top performer</span>],
-  ];
+  const tone = { fg: "text-fg", acid: "text-acid" } as const;
   return (
     <div className="brackets border border-line bg-ink-2/80 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
@@ -143,10 +142,25 @@ function Terminal() {
         <div>
           <span className="text-acid">~/voicu</span> <span className="text-faint">$</span> cat profile.yaml
         </div>
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex gap-3">
-            <span className="w-16 shrink-0 text-faint">{k}:</span>
-            <span className="min-w-0">{v}</span>
+        {terminal.map((row) => (
+          <div key={row.key} className="flex gap-3">
+            <span className="w-16 shrink-0 text-faint">{row.key}:</span>
+            <span className={`min-w-0 ${row.tone ? tone[row.tone] : ""}`}>
+              {Array.isArray(row.value) ? (
+                <>
+                  [
+                  {row.value.map((v, i) => (
+                    <span key={v}>
+                      {i > 0 && ", "}
+                      <span className="text-signal">{v}</span>
+                    </span>
+                  ))}
+                  ]
+                </>
+              ) : (
+                row.value
+              )}
+            </span>
           </div>
         ))}
         <div className="pt-1">
@@ -185,21 +199,7 @@ export function Stats() {
 }
 
 export function Marquee() {
-  const items = [
-    "Salesforce",
-    "Tableau",
-    "HERE Technologies",
-    "Nokia",
-    "Intrinsyc",
-    "AWS",
-    "Kubernetes",
-    "Terraform",
-    "LangGraph",
-    "MCP",
-    "CI/CD",
-    "DORA",
-  ];
-  const row = [...items, ...items];
+  const row = [...marquee, ...marquee];
   return (
     <div aria-hidden className="mask-x overflow-hidden border-b border-line py-6">
       <div className="flex w-max animate-marquee gap-12 whitespace-nowrap">
@@ -270,26 +270,19 @@ export function About() {
 
 /* ---------- journey ---------- */
 
-const START = 1997;
-const END = 2026;
-
 function CareerGantt() {
-  const lanes = [
-    { name: "Salesforce / Tableau", start: 2019, end: 2026, hi: true },
-    { name: "HERE Technologies", start: 2012, end: 2019 },
-    { name: "Nokia", start: 2004, end: 2012 },
-    { name: "Intrinsyc Software", start: 2000, end: 2007 },
-    { name: "CT Technologies", start: 1999, end: 2004 },
-    { name: "Pinpoint Technologies", start: 1997, end: 2000 },
-    { name: "Glenayre Technologies", start: 1997, end: 1998 },
-  ];
+  const lanes = careerLanes();
+  const { start: START, end: END } = careerRange(lanes);
   const span = END - START;
-  const ticks = [1997, 2002, 2007, 2012, 2017, 2022, 2026];
+  const ticks = careerTicks(START, END);
+  const mobileTicks = new Set([ticks[0], ticks[Math.floor(ticks.length / 2)], ticks[ticks.length - 1]]);
   return (
     <div className="border border-line bg-ink-2 p-5 md:p-8">
       <div className="mb-6 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
         <span>Timeline · {START} to {END}</span>
-        <span className="hidden sm:inline">{END - START} years · 7 companies</span>
+        <span className="hidden sm:inline">
+          {END - START} years · {lanes.length} companies
+        </span>
       </div>
       <div className="space-y-3">
         {lanes.map((l, i) => {
@@ -297,11 +290,11 @@ function CareerGantt() {
           const width = (Math.max(l.end - l.start, 0.6) / span) * 100;
           return (
             <Reveal key={l.name} delay={i * 70} className="grid grid-cols-[7.5rem_1fr] items-center gap-4 md:grid-cols-[11rem_1fr]">
-              <span className={`truncate text-[12px] md:text-[13px] ${l.hi ? "text-fg" : "text-muted"}`}>{l.name}</span>
+              <span className={`truncate text-[12px] md:text-[13px] ${l.current ? "text-fg" : "text-muted"}`}>{l.name}</span>
               <div className="relative h-2.5">
                 <div className="absolute inset-y-[4px] left-0 right-0 bg-line" />
                 <div
-                  className={`gantt-bar absolute inset-y-0 ${l.hi ? "bg-acid shadow-[0_0_20px_rgba(212,255,58,0.45)]" : "bg-white/25"}`}
+                  className={`gantt-bar absolute inset-y-0 ${l.current ? "bg-acid shadow-[0_0_20px_rgba(212,255,58,0.45)]" : "bg-white/25"}`}
                   style={{ left: `${left}%`, width: `${width}%` }}
                 />
               </div>
@@ -316,7 +309,7 @@ function CareerGantt() {
             <span
               key={t}
               className={`absolute -translate-x-1/2 first:translate-x-0 last:-translate-x-full ${
-                [1997, 2012, 2026].includes(t) ? "" : "hidden sm:block"
+                mobileTicks.has(t) ? "" : "hidden sm:block"
               }`}
               style={{ left: `${((t - START) / span) * 100}%` }}
             >
@@ -349,8 +342,7 @@ export function Journey() {
           </Reveal>
           <Reveal delay={120} className="lg:col-span-5">
             <p className="text-lg leading-relaxed text-muted">
-              From embedded networking stacks and the Nokia App Store to monetization platforms at HERE and the
-              AI-native delivery engine behind Tableau. Architect, product manager, and people leader.
+              {journeyIntro}
             </p>
           </Reveal>
         </div>
@@ -431,7 +423,9 @@ export function Journey() {
                   <span className="text-fg">{e.title}</span>
                   <span className="text-muted"> · {e.company}</span>
                 </div>
-                <span className="font-mono text-xs tabular-nums text-faint">{e.years}</span>
+                <span className="font-mono text-xs tabular-nums text-faint">
+                  {e.start} – {e.end}
+                </span>
               </div>
             ))}
           </div>

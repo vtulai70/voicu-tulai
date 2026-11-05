@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { nav, profile } from "@/lib/data";
+import { lockScroll } from "@/lib/scroll-lock";
 
 /** Fades/rises children into view once when scrolled into the viewport. */
 export function Reveal({
@@ -98,28 +99,53 @@ export function SpotlightCard({ children, className = "" }: { children: ReactNod
   );
 }
 
-/** Large ambient glow in the hero that drifts toward the cursor. */
+/**
+ * Large ambient glow in the hero that eases toward the cursor. The animation loop only runs
+ * while the glow is moving and the hero is on screen, so it costs nothing at rest.
+ */
 export function HeroGlow() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const el = ref.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
+    let visible = true;
     let tx = 0.62, ty = 0.38, x = tx, y = ty;
-    const onMove = (e: PointerEvent) => {
-      tx = e.clientX / window.innerWidth;
-      ty = e.clientY / window.innerHeight;
-    };
+
+    const apply = () =>
+      el.style.setProperty("transform", `translate3d(${(x - 0.5) * 18}vw, ${(y - 0.5) * 14}vh, 0)`);
     const loop = () => {
       x += (tx - x) * 0.04;
       y += (ty - y) * 0.04;
-      ref.current?.style.setProperty("transform", `translate3d(${(x - 0.5) * 18}vw, ${(y - 0.5) * 14}vh, 0)`);
-      raf = requestAnimationFrame(loop);
+      apply();
+      // Stop once settled (sub-pixel distance); the next pointermove restarts it.
+      raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.0005 ? requestAnimationFrame(loop) : 0;
     };
+    const start = () => {
+      if (!raf && visible) raf = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    const onMove = (e: PointerEvent) => {
+      tx = e.clientX / window.innerWidth;
+      ty = e.clientY / window.innerHeight;
+      start();
+    };
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible) start();
+      else stop();
+    });
+
+    apply();
+    io.observe(el.parentElement ?? el);
     window.addEventListener("pointermove", onMove, { passive: true });
-    raf = requestAnimationFrame(loop);
     return () => {
       window.removeEventListener("pointermove", onMove);
-      cancelAnimationFrame(raf);
+      io.disconnect();
+      stop();
     };
   }, []);
   return (
@@ -182,9 +208,20 @@ export function Nav() {
     };
   }, []);
 
+  // Lock page scroll while the mobile menu is open; the cleanup always releases it.
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (!open) return;
+    return lockScroll();
   }, [open]);
+
+  // The menu only exists below the md breakpoint: close it if the viewport widens past it
+  // (rotation, window resize), otherwise it would stay "open" but invisible.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => mq.matches && setOpen(false);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   return (
     <header
